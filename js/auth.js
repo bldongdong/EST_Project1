@@ -13,6 +13,7 @@
   }
 
   function showProtectedPage(session) {
+    window.currentAuthSession = session;
     document.querySelectorAll("[data-auth-email]").forEach(function (element) {
       element.textContent = session.user.email || "로그인 사용자";
     });
@@ -25,6 +26,7 @@
   }
 
   function showAuthPage() {
+    window.currentAuthSession = null;
     if (isPageReady) return;
     isPageReady = true;
     document.body.classList.add("auth-ready");

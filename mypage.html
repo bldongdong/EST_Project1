@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="나의 자격증 퀴즈 학습 기록과 성과" />
+    <title>마이페이지 | 하루 5분 자격증 퀴즈</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body data-page="mypage" data-auth-protected="true">
+    <canvas class="webgl-background" id="webgl-background" aria-hidden="true"></canvas>
+    <main class="page-shell mypage-page">
+      <div class="mypage-container">
+        <header class="mypage-header">
+          <a class="home-link" href="index.html" aria-label="메인 화면으로 이동">
+            <span aria-hidden="true">←</span> 홈
+          </a>
+          <div>
+            <p class="eyebrow">나의 학습 리포트</p>
+            <h1>마이페이지</h1>
+            <p class="mypage-intro">쌓여 가는 기록을 확인하고 오늘의 학습을 이어가세요.</p>
+          </div>
+        </header>
+
+        <p class="data-status" id="data-status" role="status" hidden></p>
+
+        <section class="card mypage-section profile-section" aria-labelledby="profile-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">내 프로필</p>
+              <h2 id="profile-title">계정 정보</h2>
+            </div>
+          </div>
+          <dl class="profile-details">
+            <div><dt>이메일</dt><dd id="profile-email">-</dd></div>
+            <div><dt>닉네임</dt><dd id="profile-nickname">설정 전</dd></div>
+            <div><dt>가입일</dt><dd id="profile-created-at">-</dd></div>
+          </dl>
+          <form class="nickname-form" id="nickname-form">
+            <label for="nickname-input">닉네임 수정</label>
+            <div>
+              <input id="nickname-input" name="nickname" type="text" maxlength="30" placeholder="사용할 닉네임을 입력해 주세요" required />
+              <button class="button button-secondary" id="nickname-submit" type="submit">저장</button>
+            </div>
+            <p class="profile-message" id="profile-message" role="status" hidden></p>
+          </form>
+        </section>
+
+        <section class="mypage-section" aria-labelledby="stats-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">누적 학습 통계</p>
+              <h2 id="stats-title">꾸준히 쌓인 성과</h2>
+            </div>
+          </div>
+          <div class="stats-grid">
+            <article class="stat-card"><span>누적 풀이</span><strong id="stat-total">0문제</strong></article>
+            <article class="stat-card"><span>누적 정답</span><strong id="stat-correct">0문제</strong></article>
+            <article class="stat-card stat-card-accent"><span>평균 정답률</span><strong id="stat-rate">0%</strong></article>
+            <article class="stat-card"><span>총 학습 일수</span><strong id="stat-days">0일</strong></article>
+            <article class="stat-card"><span>현재 연속 학습</span><strong id="stat-streak">0일</strong></article>
+          </div>
+        </section>
+
+        <section class="card mypage-section" aria-labelledby="calendar-title">
+          <div class="section-heading calendar-heading">
+            <div>
+              <p class="eyebrow">학습 캘린더</p>
+              <h2 id="calendar-title">월별 학습 습관</h2>
+            </div>
+            <div class="calendar-controls">
+              <button type="button" id="calendar-prev" aria-label="이전 달">←</button>
+              <strong id="calendar-month"></strong>
+              <button type="button" id="calendar-next" aria-label="다음 달">→</button>
+            </div>
+          </div>
+          <p class="calendar-summary" id="calendar-summary">이번 달 0일 학습했어요.</p>
+          <div class="calendar-grid calendar-weekdays" aria-hidden="true">
+            <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+          </div>
+          <div class="calendar-grid calendar-days" id="calendar-days" aria-label="월별 학습 달력"></div>
+        </section>
+
+        <section class="card mypage-section" aria-labelledby="recent-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">최근 학습 기록</p>
+              <h2 id="recent-title">최근 완료한 퀴즈</h2>
+            </div>
+          </div>
+          <div class="record-list" id="recent-records"></div>
+          <p class="empty-state" id="recent-empty" hidden>아직 완료한 학습이 없어요. 오늘의 퀴즈부터 시작해 보세요.</p>
+        </section>
+
+        <section class="card mypage-section" aria-labelledby="wrong-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">오답 모아보기</p>
+              <h2 id="wrong-title">다시 보면 더 오래 기억돼요</h2>
+            </div>
+          </div>
+          <div class="wrong-list" id="wrong-list"></div>
+          <p class="empty-state" id="wrong-empty" hidden>저장된 오답이 없습니다.</p>
+        </section>
+
+        <section class="card mypage-section logout-section" aria-labelledby="logout-title">
+          <div>
+            <h2 id="logout-title">로그아웃</h2>
+            <p>이 기기에서 현재 계정의 로그인을 종료합니다.</p>
+          </div>
+          <button class="button button-secondary" type="button" data-logout>로그아웃</button>
+          <p class="account-auth-message" data-auth-message role="alert" hidden></p>
+        </section>
+      </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/learning-records.js"></script>
+    <script src="js/mock-questions.js"></script>
+    <script src="js/mypage.js"></script>
+    <script type="module" src="js/background.js"></script>
+  </body>
+</html>

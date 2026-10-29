@@ -27,6 +27,18 @@
     return certificateId && quizData[certificateId] ? certificateId : null;
   }
 
+  function createRecordId() {
+    if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, function (byte) {
+      return byte.toString(16).padStart(2, "0");
+    });
+    return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10).join("")}`;
+  }
+
   function initializeHome() {
     const overlay = document.querySelector("#exam-selection");
     const optionContainer = document.querySelector("#exam-options");
@@ -161,7 +173,7 @@
       submitButton.disabled = false;
     });
 
-    form.addEventListener("submit", function (event) {
+    form.addEventListener("submit", async function (event) {
       event.preventDefault();
       const selected = form.querySelector('input[name="answer"]:checked');
       if (!selected) return;
@@ -190,6 +202,35 @@
       completions[certificateId] = result.date;
       sessionStorage.setItem(RESULT_KEY, JSON.stringify(result));
       localStorage.setItem(COMPLETION_KEY, JSON.stringify(completions));
+
+      fieldset.disabled = true;
+      submitButton.disabled = true;
+      submitButton.textContent = "학습 기록 저장 중...";
+
+      const currentUser = window.currentAuthSession?.user;
+      if (currentUser && window.learningRecords) {
+        const answerRecords = questions.map(function (question, questionIndex) {
+          return {
+            question_index: questionIndex,
+            selected_answer: answers[questionIndex],
+            correct_answer: question.answer,
+            is_correct: answers[questionIndex] === question.answer
+          };
+        });
+
+        await window.learningRecords.saveAttempt({
+          id: createRecordId(),
+          user_id: currentUser.id,
+          certificate_id: certificateId,
+          completed_on: result.date,
+          total: result.total,
+          correct: result.correct,
+          rate: result.rate,
+          answers: answerRecords,
+          created_at: new Date().toISOString()
+        });
+      }
+
       window.location.href = "result.html";
     });
 

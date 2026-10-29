@@ -228,8 +228,8 @@ function initializeBackground(targetCanvas) {
   const mobileCubes = desktopCubes.map(function (cube) {
     return {
       ...cube,
-      position: new THREE.Vector3(cube.position.x * 0.6, cube.position.y * 1.08, cube.position.z - 0.5),
-      scale: cube.scale * 0.64
+      position: new THREE.Vector3(cube.position.x * 0.34, cube.position.y * 0.96, cube.position.z - 0.15),
+      scale: cube.scale * 0.68
     };
   });
 

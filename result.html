@@ -7,13 +7,18 @@
     <title>학습 결과 | 하루 5분 자격증 퀴즈</title>
     <link rel="stylesheet" href="css/style.css" />
   </head>
-  <body data-page="result">
+  <body data-page="result" data-auth-protected="true">
     <canvas class="webgl-background" id="webgl-background" aria-hidden="true"></canvas>
     <main class="page-shell result-page">
       <section class="card result-card" aria-labelledby="result-title">
-        <a class="home-link" href="index.html" aria-label="메인 화면으로 이동">
-          <span aria-hidden="true">←</span> 홈
-        </a>
+        <div class="account-bar">
+          <a class="home-link" href="index.html" aria-label="메인 화면으로 이동">
+            <span aria-hidden="true">←</span> 홈
+          </a>
+          <span class="account-email" data-auth-email></span>
+          <button class="logout-button" type="button" data-logout>로그아웃</button>
+        </div>
+        <p class="account-auth-message" data-auth-message role="alert" hidden></p>
         <div class="completion-mark" aria-hidden="true">
           <svg viewBox="0 0 64 64" role="img">
             <circle cx="32" cy="32" r="30"></circle>
@@ -57,6 +62,9 @@
       </section>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/auth.js"></script>
     <script src="js/mock-questions.js"></script>
     <script src="js/app.js"></script>
     <script type="module" src="js/background.js"></script>

@@ -7,13 +7,18 @@
     <title>오늘의 퀴즈 | 하루 5분 자격증 퀴즈</title>
     <link rel="stylesheet" href="css/style.css" />
   </head>
-  <body data-page="quiz">
+  <body data-page="quiz" data-auth-protected="true">
     <canvas class="webgl-background" id="webgl-background" aria-hidden="true"></canvas>
     <main class="page-shell quiz-page">
       <section class="card quiz-card" aria-labelledby="question-title">
-        <a class="home-link" href="index.html" aria-label="메인 화면으로 이동">
-          <span aria-hidden="true">←</span> 홈
-        </a>
+        <div class="account-bar">
+          <a class="home-link" href="index.html" aria-label="메인 화면으로 이동">
+            <span aria-hidden="true">←</span> 홈
+          </a>
+          <span class="account-email" data-auth-email></span>
+          <button class="logout-button" type="button" data-logout>로그아웃</button>
+        </div>
+        <p class="account-auth-message" data-auth-message role="alert" hidden></p>
         <header class="quiz-header">
           <div>
             <p class="eyebrow" id="quiz-exam-name">오늘의 퀴즈</p>
@@ -44,6 +49,9 @@
       </section>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/auth.js"></script>
     <script src="js/mock-questions.js"></script>
     <script src="js/app.js"></script>
     <script type="module" src="js/background.js"></script>

@@ -259,8 +259,13 @@
     });
   }
 
-  const page = document.body.dataset.page;
-  if (page === "home") initializeHome();
-  else if (page === "quiz") initializeQuiz();
-  else if (page === "result") initializeResult();
+  function initializePage() {
+    const page = document.body.dataset.page;
+    if (page === "home") initializeHome();
+    else if (page === "quiz") initializeQuiz();
+    else if (page === "result") initializeResult();
+  }
+
+  if (document.body.classList.contains("auth-ready")) initializePage();
+  else window.addEventListener("auth:ready", initializePage, { once: true });
 })();

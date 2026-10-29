@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="오늘의 빅분기 퀴즈 학습 결과" />
+    <title>학습 결과 | 하루 5분 빅분기 퀴즈</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body data-page="result">
+    <canvas class="webgl-background" id="webgl-background" aria-hidden="true"></canvas>
+    <main class="page-shell result-page">
+      <section class="card result-card" aria-labelledby="result-title">
+        <div class="completion-mark" aria-hidden="true">
+          <svg viewBox="0 0 64 64" role="img">
+            <circle cx="32" cy="32" r="30"></circle>
+            <path d="m18 32 9 9 19-20"></path>
+          </svg>
+        </div>
+        <p class="eyebrow">오늘의 학습 완료</p>
+        <h1 id="result-title">오늘의 5분 학습을<br />완료했어요!</h1>
+
+        <div class="result-summary">
+          <div class="result-item">
+            <span>총 문제 수</span>
+            <strong id="total-count">5문제</strong>
+          </div>
+          <div class="result-item">
+            <span>정답 개수</span>
+            <strong id="correct-count">0문제</strong>
+          </div>
+          <div class="result-item result-item-highlight">
+            <span>정답률</span>
+            <strong id="correct-rate">0%</strong>
+          </div>
+        </div>
+
+        <div class="completion-status">
+          <span class="status-dot" aria-hidden="true"></span>
+          오늘의 학습 완료
+        </div>
+
+        <a class="button button-primary button-full" href="index.html">
+          홈으로 돌아가기
+        </a>
+      </section>
+    </main>
+
+    <script src="js/app.js"></script>
+    <script type="module" src="js/background.js"></script>
+  </body>
+</html>

@@ -3,25 +3,28 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="빅데이터분석기사 필기 예상문제 풀이" />
-    <title>오늘의 퀴즈 | 하루 5분 빅분기 퀴즈</title>
+    <meta name="description" content="선택한 자격증의 필기 예상문제 풀이" />
+    <title>오늘의 퀴즈 | 하루 5분 자격증 퀴즈</title>
     <link rel="stylesheet" href="css/style.css" />
   </head>
   <body data-page="quiz">
     <canvas class="webgl-background" id="webgl-background" aria-hidden="true"></canvas>
     <main class="page-shell quiz-page">
       <section class="card quiz-card" aria-labelledby="question-title">
+        <a class="home-link" href="index.html" aria-label="메인 화면으로 이동">
+          <span aria-hidden="true">←</span> 홈
+        </a>
         <header class="quiz-header">
           <div>
-            <p class="eyebrow">오늘의 퀴즈</p>
-            <p class="progress-text" id="progress-text">1 / 5</p>
+            <p class="eyebrow" id="quiz-exam-name">오늘의 퀴즈</p>
+            <p class="progress-text" id="progress-text">1 / 7</p>
           </div>
           <div
             class="progress-track"
             role="progressbar"
             aria-label="퀴즈 진행률"
             aria-valuemin="1"
-            aria-valuemax="5"
+            aria-valuemax="7"
             aria-valuenow="1"
           >
             <span class="progress-bar" id="progress-bar"></span>
@@ -35,21 +38,9 @@
           </fieldset>
 
           <button class="button button-primary button-full" id="submit-answer" type="submit" disabled>
-            정답 제출
-          </button>
-        </form>
-
-        <section class="feedback" id="feedback" aria-live="polite" hidden>
-          <p class="feedback-result" id="feedback-result"></p>
-          <p class="feedback-answer" id="feedback-answer"></p>
-          <div class="explanation-box">
-            <strong>해설</strong>
-            <p id="feedback-explanation"></p>
-          </div>
-          <button class="button button-primary button-full" id="next-question" type="button">
             다음 문제
           </button>
-        </section>
+        </form>
       </section>
     </main>
 

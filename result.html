@@ -3,27 +3,30 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="오늘의 빅분기 퀴즈 학습 결과" />
-    <title>학습 결과 | 하루 5분 빅분기 퀴즈</title>
+    <meta name="description" content="오늘의 자격증 퀴즈 학습 결과" />
+    <title>학습 결과 | 하루 5분 자격증 퀴즈</title>
     <link rel="stylesheet" href="css/style.css" />
   </head>
   <body data-page="result">
     <canvas class="webgl-background" id="webgl-background" aria-hidden="true"></canvas>
     <main class="page-shell result-page">
       <section class="card result-card" aria-labelledby="result-title">
+        <a class="home-link" href="index.html" aria-label="메인 화면으로 이동">
+          <span aria-hidden="true">←</span> 홈
+        </a>
         <div class="completion-mark" aria-hidden="true">
           <svg viewBox="0 0 64 64" role="img">
             <circle cx="32" cy="32" r="30"></circle>
             <path d="m18 32 9 9 19-20"></path>
           </svg>
         </div>
-        <p class="eyebrow">오늘의 학습 완료</p>
+        <p class="eyebrow" id="result-exam-name">오늘의 학습 완료</p>
         <h1 id="result-title">오늘의 5분 학습을<br />완료했어요!</h1>
 
         <div class="result-summary">
           <div class="result-item">
             <span>총 문제 수</span>
-            <strong id="total-count">5문제</strong>
+            <strong id="total-count">7문제</strong>
           </div>
           <div class="result-item">
             <span>정답 개수</span>
@@ -40,12 +43,21 @@
           오늘의 학습 완료
         </div>
 
+        <section class="review-section" aria-labelledby="review-title">
+          <div class="review-heading">
+            <p class="eyebrow">채점 및 해설</p>
+            <h2 id="review-title">문제별로 다시 확인해요</h2>
+          </div>
+          <div class="review-list" id="review-list"></div>
+        </section>
+
         <a class="button button-primary button-full" href="index.html">
           홈으로 돌아가기
         </a>
       </section>
     </main>
 
+    <script src="js/mock-questions.js"></script>
     <script src="js/app.js"></script>
     <script type="module" src="js/background.js"></script>
   </body>

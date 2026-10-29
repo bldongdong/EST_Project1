@@ -1,8 +1,10 @@
 (function () {
   "use strict";
 
-  const COMPLETION_KEY = "bigbungiQuizCompletion";
-  const RESULT_KEY = "bigbungiQuizResult";
+  const CERTIFICATE_KEY = "dailyQuizCertificate";
+  const COMPLETION_KEY = "dailyQuizCompletions";
+  const RESULT_KEY = "dailyQuizResult";
+  const quizData = window.QUIZ_DATA || {};
 
   function getLocalDateKey() {
     const today = new Date();
@@ -20,45 +22,114 @@
     }
   }
 
-  function initializeHome() {
-    const statusElement = document.querySelector("#today-status");
-    const completion = readJson(localStorage, COMPLETION_KEY);
-    const isComplete = completion && completion.date === getLocalDateKey();
+  function getSelectedCertificate() {
+    const certificateId = localStorage.getItem(CERTIFICATE_KEY);
+    return certificateId && quizData[certificateId] ? certificateId : null;
+  }
 
-    statusElement.textContent = isComplete ? "학습 완료" : "학습 전";
-    statusElement.classList.toggle("is-complete", Boolean(isComplete));
+  function initializeHome() {
+    const overlay = document.querySelector("#exam-selection");
+    const optionContainer = document.querySelector("#exam-options");
+    const selectedExam = document.querySelector("#selected-exam");
+    const selectedExamName = document.querySelector("#selected-exam-name");
+    const homeExamTitle = document.querySelector("#home-exam-title");
+    const homeDescription = document.querySelector("#home-description");
+    const statusElement = document.querySelector("#today-status");
+    const changeButton = document.querySelector("#change-exam");
+    let selectedCertificateId = getSelectedCertificate();
+
+    Object.entries(quizData).forEach(function ([certificateId, certificate]) {
+      const button = document.createElement("button");
+      button.className = "exam-option";
+      button.type = "button";
+      button.dataset.certificate = certificateId;
+      button.innerHTML = `<span class="exam-option-icon" aria-hidden="true">${certificate.shortName.slice(0, 1)}</span><span><strong>${certificate.name}</strong><small>${certificate.description}</small></span><span class="exam-option-arrow" aria-hidden="true">→</span>`;
+      optionContainer.appendChild(button);
+    });
+
+    function renderHome() {
+      const certificate = quizData[selectedCertificateId];
+      if (!certificate) {
+        return;
+      }
+
+      const completions = readJson(localStorage, COMPLETION_KEY) || {};
+      const isComplete = completions[selectedCertificateId] === getLocalDateKey();
+
+      selectedExam.hidden = false;
+      selectedExamName.textContent = certificate.name;
+      homeExamTitle.textContent = `${certificate.shortName} 퀴즈!`;
+      homeDescription.innerHTML = `하루 7문제로 준비하는<br />${certificate.name}`;
+      statusElement.textContent = isComplete ? "학습 완료" : "학습 전";
+      statusElement.classList.toggle("is-complete", isComplete);
+      document.title = `하루 5분 ${certificate.shortName} 퀴즈`;
+    }
+
+    function openSelection() {
+      overlay.hidden = false;
+      document.body.classList.add("selection-open");
+      const currentOption = selectedCertificateId
+        ? optionContainer.querySelector(`[data-certificate="${selectedCertificateId}"]`)
+        : optionContainer.querySelector(".exam-option");
+      currentOption?.focus();
+    }
+
+    function closeSelection() {
+      overlay.hidden = true;
+      document.body.classList.remove("selection-open");
+      changeButton.focus();
+    }
+
+    optionContainer.addEventListener("click", function (event) {
+      const option = event.target.closest(".exam-option");
+      if (!option) {
+        return;
+      }
+
+      selectedCertificateId = option.dataset.certificate;
+      localStorage.setItem(CERTIFICATE_KEY, selectedCertificateId);
+      renderHome();
+      closeSelection();
+    });
+
+    changeButton.addEventListener("click", openSelection);
+
+    if (selectedCertificateId) {
+      renderHome();
+    } else {
+      openSelection();
+    }
   }
 
   function initializeQuiz() {
-    if (!Array.isArray(window.MOCK_QUESTIONS) && typeof MOCK_QUESTIONS === "undefined") {
+    const certificateId = getSelectedCertificate();
+    const certificate = certificateId && quizData[certificateId];
+
+    if (!certificate || !Array.isArray(certificate.questions)) {
+      window.location.replace("index.html");
       return;
     }
 
-    const questions = MOCK_QUESTIONS;
+    const questions = certificate.questions;
     let currentIndex = 0;
-    let correctCount = 0;
-    let isSubmitted = false;
+    const answers = [];
 
     const form = document.querySelector("#quiz-form");
     const fieldset = document.querySelector("#answer-fieldset");
     const questionTitle = document.querySelector("#question-title");
     const optionList = document.querySelector("#option-list");
     const submitButton = document.querySelector("#submit-answer");
-    const feedback = document.querySelector("#feedback");
-    const feedbackResult = document.querySelector("#feedback-result");
-    const feedbackAnswer = document.querySelector("#feedback-answer");
-    const feedbackExplanation = document.querySelector("#feedback-explanation");
-    const nextButton = document.querySelector("#next-question");
     const progressText = document.querySelector("#progress-text");
     const progressTrack = document.querySelector(".progress-track");
     const progressBar = document.querySelector("#progress-bar");
 
+    document.querySelector("#quiz-exam-name").textContent = `${certificate.name} · 오늘의 퀴즈`;
+    document.title = `오늘의 퀴즈 | ${certificate.name}`;
+    progressTrack.setAttribute("aria-valuemax", String(questions.length));
     sessionStorage.removeItem(RESULT_KEY);
 
     function renderQuestion() {
       const currentQuestion = questions[currentIndex];
-      isSubmitted = false;
-
       progressText.textContent = `${currentIndex + 1} / ${questions.length}`;
       progressTrack.setAttribute("aria-valuenow", String(currentIndex + 1));
       progressBar.style.width = `${((currentIndex + 1) / questions.length) * 100}%`;
@@ -68,98 +139,57 @@
       currentQuestion.options.forEach(function (option, optionIndex) {
         const label = document.createElement("label");
         label.className = "option-label";
-
         const input = document.createElement("input");
         input.type = "radio";
         input.name = "answer";
         input.value = String(optionIndex);
-
         const number = document.createElement("span");
         number.className = "option-number";
         number.textContent = String(optionIndex + 1);
-
         const text = document.createElement("span");
         text.textContent = option;
-
         label.append(input, number, text);
         optionList.appendChild(label);
       });
 
       fieldset.disabled = false;
       submitButton.disabled = true;
-      form.hidden = false;
-      feedback.hidden = true;
-      nextButton.textContent = currentIndex === questions.length - 1 ? "결과 확인" : "다음 문제";
+      submitButton.textContent = currentIndex === questions.length - 1 ? "채점하기" : "다음 문제";
     }
 
     optionList.addEventListener("change", function () {
-      if (!isSubmitted) {
-        submitButton.disabled = false;
-      }
+      submitButton.disabled = false;
     });
 
     form.addEventListener("submit", function (event) {
       event.preventDefault();
-
-      if (isSubmitted) {
-        return;
-      }
-
       const selected = form.querySelector('input[name="answer"]:checked');
-      if (!selected) {
-        return;
-      }
+      if (!selected) return;
 
-      isSubmitted = true;
-      const selectedIndex = Number(selected.value);
-      const currentQuestion = questions[currentIndex];
-      const isCorrect = selectedIndex === currentQuestion.answer;
-
-      if (isCorrect) {
-        correctCount += 1;
-      }
-
-      fieldset.disabled = true;
-      submitButton.disabled = true;
-      submitButton.hidden = true;
-
-      const optionLabels = optionList.querySelectorAll(".option-label");
-      optionLabels[currentQuestion.answer].classList.add("is-correct");
-      if (!isCorrect) {
-        optionLabels[selectedIndex].classList.add("is-wrong");
-      }
-
-      feedbackResult.textContent = isCorrect ? "정답이에요!" : "아쉬워요, 오답이에요.";
-      feedbackResult.className = `feedback-result ${isCorrect ? "is-correct" : "is-wrong"}`;
-      feedbackAnswer.textContent = `정답: ${currentQuestion.answer + 1}번. ${currentQuestion.options[currentQuestion.answer]}`;
-      feedbackExplanation.textContent = currentQuestion.explanation;
-      feedback.hidden = false;
-      nextButton.focus();
-    });
-
-    nextButton.addEventListener("click", function () {
-      if (!isSubmitted) {
-        return;
-      }
-
+      answers[currentIndex] = Number(selected.value);
       if (currentIndex < questions.length - 1) {
         currentIndex += 1;
-        submitButton.hidden = false;
         renderQuestion();
         questionTitle.focus?.();
         window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       }
 
+      const correctCount = answers.reduce(function (count, answer, index) {
+        return count + (answer === questions[index].answer ? 1 : 0);
+      }, 0);
       const result = {
+        certificateId,
         total: questions.length,
         correct: correctCount,
         rate: Math.round((correctCount / questions.length) * 100),
+        answers,
         date: getLocalDateKey()
       };
-
+      const completions = readJson(localStorage, COMPLETION_KEY) || {};
+      completions[certificateId] = result.date;
       sessionStorage.setItem(RESULT_KEY, JSON.stringify(result));
-      localStorage.setItem(COMPLETION_KEY, JSON.stringify({ date: result.date }));
+      localStorage.setItem(COMPLETION_KEY, JSON.stringify(completions));
       window.location.href = "result.html";
     });
 
@@ -168,11 +198,17 @@
 
   function initializeResult() {
     const result = readJson(sessionStorage, RESULT_KEY);
+    const certificate = result && quizData[result.certificateId];
     const isValidResult =
-      result &&
+      certificate &&
       Number.isInteger(result.total) &&
       Number.isInteger(result.correct) &&
-      result.total === 5 &&
+      Array.isArray(result.answers) &&
+      result.total === certificate.questions.length &&
+      result.answers.length === result.total &&
+      result.answers.every(function (answer) {
+        return Number.isInteger(answer) && answer >= 0 && answer < 4;
+      }) &&
       result.correct >= 0 &&
       result.correct <= result.total &&
       result.date === getLocalDateKey();
@@ -182,18 +218,49 @@
       return;
     }
 
+    document.querySelector("#result-exam-name").textContent = `${certificate.name} · 오늘의 학습 완료`;
     document.querySelector("#total-count").textContent = `${result.total}문제`;
     document.querySelector("#correct-count").textContent = `${result.correct}문제`;
     document.querySelector("#correct-rate").textContent = `${result.rate}%`;
+    document.title = `학습 결과 | ${certificate.name}`;
+
+    const reviewList = document.querySelector("#review-list");
+    certificate.questions.forEach(function (question, questionIndex) {
+      const selectedAnswer = result.answers[questionIndex];
+      const isCorrect = selectedAnswer === question.answer;
+      const reviewItem = document.createElement("article");
+      reviewItem.className = `review-item ${isCorrect ? "is-correct" : "is-wrong"}`;
+
+      const reviewStatus = document.createElement("span");
+      reviewStatus.className = "review-status";
+      reviewStatus.textContent = isCorrect ? "정답" : "오답";
+
+      const reviewTitle = document.createElement("h3");
+      reviewTitle.textContent = `${questionIndex + 1}. ${question.question}`;
+
+      const myAnswer = document.createElement("p");
+      myAnswer.className = "review-answer";
+      myAnswer.innerHTML = `<strong>내 답</strong><span>${selectedAnswer + 1}번. ${question.options[selectedAnswer]}</span>`;
+
+      const correctAnswer = document.createElement("p");
+      correctAnswer.className = "review-answer correct-answer";
+      correctAnswer.innerHTML = `<strong>정답</strong><span>${question.answer + 1}번. ${question.options[question.answer]}</span>`;
+
+      const explanation = document.createElement("div");
+      explanation.className = "review-explanation";
+      const explanationTitle = document.createElement("strong");
+      explanationTitle.textContent = "해설";
+      const explanationText = document.createElement("p");
+      explanationText.textContent = question.explanation;
+      explanation.append(explanationTitle, explanationText);
+
+      reviewItem.append(reviewStatus, reviewTitle, myAnswer, correctAnswer, explanation);
+      reviewList.appendChild(reviewItem);
+    });
   }
 
   const page = document.body.dataset.page;
-
-  if (page === "home") {
-    initializeHome();
-  } else if (page === "quiz") {
-    initializeQuiz();
-  } else if (page === "result") {
-    initializeResult();
-  }
+  if (page === "home") initializeHome();
+  else if (page === "quiz") initializeQuiz();
+  else if (page === "result") initializeResult();
 })();

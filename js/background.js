@@ -1,7 +1,5 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js";
 
-const PARTICLE_COUNT_MULTIPLIER = 1000;
-const PARTICLE_SPEED_MULTIPLIER = 3.5;
 const canvas = document.querySelector("#webgl-background");
 
 if (canvas) {
@@ -11,7 +9,6 @@ if (canvas) {
 function initializeBackground(targetCanvas) {
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const isMobile = window.matchMedia("(max-width: 700px)").matches;
-
   let renderer;
 
   try {
@@ -26,292 +23,259 @@ function initializeBackground(targetCanvas) {
     return;
   }
 
+  targetCanvas.dataset.background = "interactive-cubes";
   renderer.setClearColor(0x000000, 0);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.15 : 1.5));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 40);
-  camera.position.set(0, 0, 8.5);
+  camera.position.set(0, 0, 9);
 
-  const group = new THREE.Group();
-  scene.add(group);
+  const cubeGroup = new THREE.Group();
+  scene.add(cubeGroup);
 
-  function createGlowTexture(colorStops) {
-    const textureCanvas = document.createElement("canvas");
-    textureCanvas.width = 64;
-    textureCanvas.height = 64;
+  const hemisphereLight = new THREE.HemisphereLight(0xeafaff, 0x24384c, 1.9);
+  const keyLight = new THREE.DirectionalLight(0xffffff, 3.4);
+  const blueLight = new THREE.PointLight(0x82c7e8, 11, 18, 2);
+  const tealLight = new THREE.PointLight(0x74d8c7, 9, 16, 2);
+  keyLight.position.set(-3.5, 5, 7);
+  blueLight.position.set(-5, 1, 4);
+  tealLight.position.set(5, -2, 3);
+  scene.add(hemisphereLight, keyLight, blueLight, tealLight);
 
-    const context = textureCanvas.getContext("2d");
-    const gradient = context.createRadialGradient(32, 32, 0, 32, 32, 32);
-    gradient.addColorStop(0, colorStops.core);
-    gradient.addColorStop(0.18, colorStops.inner);
-    gradient.addColorStop(0.48, colorStops.outer);
-    gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
-    context.fillStyle = gradient;
-    context.fillRect(0, 0, 64, 64);
-
-    const texture = new THREE.CanvasTexture(textureCanvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    return texture;
-  }
-
-  const coolGlowTexture = createGlowTexture({
-    core: "rgba(255, 255, 255, 1)",
-    inner: "rgba(195, 231, 238, 0.92)",
-    outer: "rgba(82, 111, 128, 0.2)"
-  });
-  const tealGlowTexture = createGlowTexture({
-    core: "rgba(255, 255, 255, 1)",
-    inner: "rgba(167, 237, 222, 0.92)",
-    outer: "rgba(35, 127, 117, 0.18)"
-  });
-
-  const sharedUniforms = {
-    uTime: { value: 0 },
-    uPointer: { value: new THREE.Vector2(0, 0) },
-    uScroll: { value: 0 }
-  };
-
-  const vertexShader = `
-    uniform float uTime;
-    uniform float uScroll;
-    uniform vec2 uPointer;
-    varying vec3 vNormal;
-    varying vec3 vPosition;
-
-    void main() {
-      vec3 transformed = position;
-      float slowTime = uTime * 0.45;
-      float waveA = sin(position.x * 2.15 + slowTime + uPointer.y * 0.8);
-      float waveB = sin(position.y * 2.65 - slowTime * 1.25 + uPointer.x * 0.7);
-      float waveC = cos(position.z * 3.0 + slowTime * 0.75);
-      float scrollWave = sin((position.x + position.y) * 2.2 + uScroll * 12.0);
-      float displacement = (waveA + waveB + waveC) * 0.075 + scrollWave * uScroll * 0.055;
-
-      transformed += normal * displacement;
-      vNormal = normalize(normalMatrix * normal);
-      vPosition = transformed;
-
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(transformed, 1.0);
-    }
-  `;
-
-  const fragmentShader = `
-    uniform vec3 uColorA;
-    uniform vec3 uColorB;
-    uniform float uOpacity;
-    varying vec3 vNormal;
-    varying vec3 vPosition;
-
-    void main() {
-      vec3 viewDirection = normalize(cameraPosition - vPosition);
-      float fresnel = pow(1.0 - abs(dot(vNormal, viewDirection)), 2.4);
-      float verticalMix = smoothstep(-1.2, 1.2, vPosition.y);
-      vec3 baseColor = mix(uColorA, uColorB, verticalMix);
-      vec3 color = mix(baseColor, vec3(0.93, 0.97, 0.98), fresnel * 0.7);
-      float alpha = uOpacity * (0.72 + fresnel * 0.28);
-
-      gl_FragColor = vec4(color, alpha);
-    }
-  `;
-
-  function createBlob(options) {
-    const geometry = new THREE.IcosahedronGeometry(1, isMobile ? 3 : 5);
-    const material = new THREE.ShaderMaterial({
-      vertexShader,
-      fragmentShader,
-      uniforms: {
-        uTime: sharedUniforms.uTime,
-        uPointer: sharedUniforms.uPointer,
-        uScroll: sharedUniforms.uScroll,
-        uColorA: { value: new THREE.Color(options.colorA) },
-        uColorB: { value: new THREE.Color(options.colorB) },
-        uOpacity: { value: options.opacity }
-      },
+  function createCube(options) {
+    const container = new THREE.Group();
+    const geometry = new THREE.BoxGeometry(1, 1, 1, 2, 2, 2);
+    const material = new THREE.MeshPhysicalMaterial({
+      color: options.color,
+      roughness: 0.16,
+      metalness: 0.12,
+      transmission: 0.32,
+      thickness: 1.2,
+      ior: 1.38,
+      clearcoat: 1,
+      clearcoatRoughness: 0.1,
       transparent: true,
-      depthWrite: false,
+      opacity: 0.58,
       side: THREE.DoubleSide
     });
+    const cube = new THREE.Mesh(geometry, material);
 
-    const blob = new THREE.Mesh(geometry, material);
-    blob.position.copy(options.position);
-    blob.scale.setScalar(options.scale);
-    blob.userData.speed = options.speed;
-    blob.userData.offset = options.offset;
-    blob.userData.basePosition = options.position.clone();
-    blob.userData.baseScale = options.scale;
-    group.add(blob);
-    return blob;
-  }
-
-  function createParticleShell(blob, options) {
-    const count = (isMobile ? 48 : 120) * PARTICLE_COUNT_MULTIPLIER;
-    const densityAdjustedOpacity = options.opacity / Math.sqrt(PARTICLE_COUNT_MULTIPLIER);
-    const positions = new Float32Array(count * 3);
-
-    for (let index = 0; index < count; index += 1) {
-      const positionIndex = index * 3;
-      const y = 1 - (index / Math.max(count - 1, 1)) * 2;
-      const radiusAtY = Math.sqrt(Math.max(0, 1 - y * y));
-      const theta = index * 2.399963 + Math.random() * 0.16;
-      const shellRadius = options.radius + (Math.random() - 0.5) * 0.12;
-
-      positions[positionIndex] = Math.cos(theta) * radiusAtY * shellRadius;
-      positions[positionIndex + 1] = y * shellRadius;
-      positions[positionIndex + 2] = Math.sin(theta) * radiusAtY * shellRadius;
-    }
-
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-
-    const material = new THREE.PointsMaterial({
-      color: options.color,
-      map: options.texture,
-      size: isMobile ? 0.055 : 0.045,
-      sizeAttenuation: true,
+    const edgeMaterial = new THREE.LineBasicMaterial({
+      color: options.edgeColor,
       transparent: true,
-      opacity: densityAdjustedOpacity,
-      alphaTest: 0.015,
-      blending: THREE.AdditiveBlending,
+      opacity: 0.52
+    });
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), edgeMaterial);
+    edges.scale.setScalar(1.006);
+
+    const innerMaterial = new THREE.MeshStandardMaterial({
+      color: options.innerColor,
+      emissive: options.innerColor,
+      emissiveIntensity: 0.28,
+      roughness: 0.24,
+      metalness: 0.18,
+      transparent: true,
+      opacity: 0.22,
       depthWrite: false
     });
+    const innerCube = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.48, 0.48), innerMaterial);
+    innerCube.rotation.set(0.35, -0.3, 0.18);
 
-    const shell = new THREE.Points(geometry, material);
-    shell.renderOrder = 3;
-    shell.userData.speed = options.speed * PARTICLE_SPEED_MULTIPLIER;
-    shell.userData.offset = options.offset;
-    shell.userData.baseOpacity = densityAdjustedOpacity;
-    blob.add(shell);
-    return shell;
+    container.add(cube, edges, innerCube);
+    container.position.copy(options.position);
+    container.scale.setScalar(options.scale);
+    container.rotation.copy(options.rotation);
+    container.userData = {
+      basePosition: options.position.clone(),
+      baseRotation: options.rotation.clone(),
+      speed: options.speed,
+      phase: options.phase,
+      scale: options.scale,
+      avoidOffset: new THREE.Vector3(),
+      innerCube
+    };
+    cubeGroup.add(container);
+    return container;
   }
 
-  function createOrbitingLights(blob, options) {
-    const lights = [];
-    const count = isMobile ? 4 : 9;
-
-    for (let index = 0; index < count; index += 1) {
-      const material = new THREE.SpriteMaterial({
-        color: index % 3 === 0 ? 0xffffff : options.color,
-        map: options.texture,
-        transparent: true,
-        opacity: 0.78,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-      });
-      const light = new THREE.Sprite(material);
-      const baseSize = 0.06 + Math.random() * 0.075;
-
-      light.scale.setScalar(baseSize);
-      light.renderOrder = 4;
-      light.userData = {
-        baseSize,
-        radius: 1.02 + Math.random() * 0.18,
-        phi: 0.35 + Math.random() * (Math.PI - 0.7),
-        theta: Math.random() * Math.PI * 2,
-        speed: options.speed * PARTICLE_SPEED_MULTIPLIER * (0.72 + Math.random() * 0.65),
-        phase: Math.random() * Math.PI * 2
-      };
-
-      blob.add(light);
-      lights.push(light);
-    }
-
-    return lights;
-  }
-
-  const blobs = [
-    createBlob({
-      colorA: 0x2f5577,
-      colorB: 0x7ea5b5,
-      opacity: 0.38,
-      position: new THREE.Vector3(-4.2, 2.4, -2.8),
-      scale: 3.35,
+  const desktopCubes = [
+    {
+      color: 0x527b9e,
+      edgeColor: 0xb8d8e9,
+      innerColor: 0x8dcce5,
+      position: new THREE.Vector3(-4.7, 2.5, -2.8),
+      scale: 1.75,
+      rotation: new THREE.Euler(0.45, 0.58, -0.22),
       speed: 0.12,
-      offset: 0
-    }),
-    createBlob({
-      colorA: 0x237f75,
-      colorB: 0x9bc9c1,
-      opacity: 0.3,
-      position: new THREE.Vector3(4.5, -2.7, -3.4),
-      scale: 2.85,
+      phase: 0
+    },
+    {
+      color: 0x4b9a8e,
+      edgeColor: 0xb8e5dc,
+      innerColor: 0x86d8c7,
+      position: new THREE.Vector3(4.65, -2.35, -3.1),
+      scale: 1.9,
+      rotation: new THREE.Euler(-0.32, 0.72, 0.28),
       speed: -0.1,
-      offset: 2.3
-    })
-  ];
-
-  const particleShells = [
-    createParticleShell(blobs[0], {
-      color: 0xd7f1f4,
-      texture: coolGlowTexture,
-      radius: 1.04,
-      opacity: 0.82,
+      phase: 2.1
+    },
+    {
+      color: 0x7185aa,
+      edgeColor: 0xd2dcf0,
+      innerColor: 0xaabce0,
+      position: new THREE.Vector3(4.15, 2.8, -5.3),
+      scale: 1.18,
+      rotation: new THREE.Euler(0.72, -0.45, 0.36),
       speed: 0.085,
-      offset: 0
-    }),
-    createParticleShell(blobs[1], {
-      color: 0xc3f3e8,
-      texture: tealGlowTexture,
-      radius: 1.04,
-      opacity: 0.76,
-      speed: -0.1,
-      offset: 1.7
-    })
+      phase: 4.2
+    },
+    {
+      color: 0x5d88a5,
+      edgeColor: 0xc4ddea,
+      innerColor: 0x92c7dc,
+      position: new THREE.Vector3(-4.7, -2.65, -4.1),
+      scale: 0.82,
+      rotation: new THREE.Euler(-0.28, 0.38, 0.48),
+      speed: -0.14,
+      phase: 1.1
+    },
+    {
+      color: 0x61998f,
+      edgeColor: 0xc8e4dd,
+      innerColor: 0x95d2c6,
+      position: new THREE.Vector3(-3.15, 0.15, -6.1),
+      scale: 0.5,
+      rotation: new THREE.Euler(0.62, -0.38, -0.3),
+      speed: 0.17,
+      phase: 3.4
+    },
+    {
+      color: 0x7889aa,
+      edgeColor: 0xd8e0ef,
+      innerColor: 0xb2bee0,
+      position: new THREE.Vector3(5.1, 0.3, -4.4),
+      scale: 0.68,
+      rotation: new THREE.Euler(0.34, 0.82, -0.4),
+      speed: -0.13,
+      phase: 5.1
+    },
+    {
+      color: 0x4f8d98,
+      edgeColor: 0xc1dce1,
+      innerColor: 0x8fc8d1,
+      position: new THREE.Vector3(2.9, -3.65, -6.2),
+      scale: 0.46,
+      rotation: new THREE.Euler(-0.65, 0.22, 0.58),
+      speed: 0.19,
+      phase: 0.7
+    },
+    {
+      color: 0x657da0,
+      edgeColor: 0xd0dbea,
+      innerColor: 0xa4b9d8,
+      position: new THREE.Vector3(-2.85, 3.75, -5.7),
+      scale: 0.74,
+      rotation: new THREE.Euler(0.22, -0.72, 0.26),
+      speed: 0.11,
+      phase: 2.8
+    },
+    {
+      color: 0x58978a,
+      edgeColor: 0xc5e3dc,
+      innerColor: 0x91cfc0,
+      position: new THREE.Vector3(5.45, 3.6, -6.5),
+      scale: 0.54,
+      rotation: new THREE.Euler(0.78, 0.16, -0.52),
+      speed: -0.16,
+      phase: 4.8
+    },
+    {
+      color: 0x668ba3,
+      edgeColor: 0xc9dce7,
+      innerColor: 0x9bc4d4,
+      position: new THREE.Vector3(-5.45, -0.35, -6.2),
+      scale: 0.56,
+      rotation: new THREE.Euler(-0.48, 0.68, 0.18),
+      speed: 0.15,
+      phase: 1.9
+    },
+    {
+      color: 0x7a87a6,
+      edgeColor: 0xd9deeb,
+      innerColor: 0xb3bcda,
+      position: new THREE.Vector3(3.05, 0.9, -7.1),
+      scale: 0.38,
+      rotation: new THREE.Euler(0.42, -0.28, 0.72),
+      speed: -0.2,
+      phase: 3.9
+    },
+    {
+      color: 0x508f84,
+      edgeColor: 0xc1e0d9,
+      innerColor: 0x8bcbbe,
+      position: new THREE.Vector3(-3.9, -3.85, -6.4),
+      scale: 0.43,
+      rotation: new THREE.Euler(-0.18, -0.58, 0.36),
+      speed: 0.18,
+      phase: 5.7
+    }
   ];
 
-  const orbitingLights = [
-    ...createOrbitingLights(blobs[0], {
-      color: 0xb8e6ef,
-      texture: coolGlowTexture,
-      speed: 0.34
-    }),
-    ...createOrbitingLights(blobs[1], {
-      color: 0xa9eadc,
-      texture: tealGlowTexture,
-      speed: -0.31
-    })
-  ];
+  const mobileCubes = desktopCubes.map(function (cube) {
+    return {
+      ...cube,
+      position: new THREE.Vector3(cube.position.x * 0.6, cube.position.y * 1.08, cube.position.z - 0.5),
+      scale: cube.scale * 0.64
+    };
+  });
 
-  const particleCount = (isMobile ? 36 : 70) * PARTICLE_COUNT_MULTIPLIER;
+  const cubes = (isMobile ? mobileCubes : desktopCubes).map(createCube);
+  targetCanvas.dataset.cubeCount = String(cubes.length);
+  targetCanvas.dataset.interactive = String(!reduceMotion);
+
+  const particleCount = isMobile ? 34 : 64;
   const particlePositions = new Float32Array(particleCount * 3);
-
   for (let index = 0; index < particleCount; index += 1) {
-    const positionIndex = index * 3;
-    particlePositions[positionIndex] = (Math.random() - 0.5) * 15;
-    particlePositions[positionIndex + 1] = (Math.random() - 0.5) * 10;
-    particlePositions[positionIndex + 2] = -2 - Math.random() * 7;
+    const offset = index * 3;
+    particlePositions[offset] = (Math.random() - 0.5) * 15;
+    particlePositions[offset + 1] = (Math.random() - 0.5) * 10;
+    particlePositions[offset + 2] = -2 - Math.random() * 7;
   }
 
   const particleGeometry = new THREE.BufferGeometry();
   particleGeometry.setAttribute("position", new THREE.BufferAttribute(particlePositions, 3));
-
   const particleMaterial = new THREE.PointsMaterial({
-    color: 0x526f80,
-    map: coolGlowTexture,
-    size: isMobile ? 0.065 : 0.075,
-    sizeAttenuation: true,
+    color: 0x7ba5b8,
+    size: isMobile ? 0.035 : 0.045,
     transparent: true,
-    opacity: 0.34 / Math.sqrt(PARTICLE_COUNT_MULTIPLIER),
-    alphaTest: 0.015,
-    blending: THREE.AdditiveBlending,
+    opacity: 0.34,
     depthWrite: false
   });
-
   const particles = new THREE.Points(particleGeometry, particleMaterial);
   scene.add(particles);
 
-  const pointer = new THREE.Vector2(0, 0);
-  const pointerTarget = new THREE.Vector2(0, 0);
+  const pointer = new THREE.Vector2();
+  const pointerTarget = new THREE.Vector2();
+  const projectedPosition = new THREE.Vector3();
+  const desiredAvoidOffset = new THREE.Vector3();
   const scroll = { current: 0, target: 0 };
   const clock = new THREE.Clock();
-  const homeCard = document.querySelector(".home-card");
   let animationFrameId = 0;
   let isVisible = !document.hidden;
+  let isPointerActive = false;
 
   function handlePointerMove(event) {
+    isPointerActive = true;
     pointerTarget.x = (event.clientX / window.innerWidth) * 2 - 1;
     pointerTarget.y = -((event.clientY / window.innerHeight) * 2 - 1);
+  }
+
+  function handlePointerLeave() {
+    isPointerActive = false;
   }
 
   function handleScroll() {
@@ -330,76 +294,57 @@ function initializeBackground(targetCanvas) {
   function renderFrame() {
     const elapsed = clock.getElapsedTime();
     pointer.lerp(pointerTarget, 0.045);
-    scroll.current += (scroll.target - scroll.current) * (isMobile ? 0.09 : 0.055);
+    scroll.current += (scroll.target - scroll.current) * (isMobile ? 0.08 : 0.05);
 
-    const scrollProgress = scroll.current;
-    const scrollArc = Math.sin(scrollProgress * Math.PI);
+    cubeGroup.rotation.x += (pointer.y * 0.055 - cubeGroup.rotation.x) * 0.035;
+    cubeGroup.rotation.y += (pointer.x * 0.075 + scroll.current * 0.32 - cubeGroup.rotation.y) * 0.035;
+    cubeGroup.updateMatrixWorld(true);
 
-    sharedUniforms.uTime.value = elapsed;
-    sharedUniforms.uPointer.value.copy(pointer);
-    sharedUniforms.uScroll.value = scrollProgress;
+    cubes.forEach(function (cube, index) {
+      const data = cube.userData;
+      const direction = index % 2 === 0 ? 1 : -1;
+      const floatX = Math.cos(elapsed * 0.3 + data.phase) * 0.07;
+      const floatY = Math.sin(elapsed * 0.48 + data.phase) * 0.16;
 
-    const targetRotationX = pointer.y * 0.055 + scrollProgress * 0.4;
-    const targetRotationY = pointer.x * 0.075 + scrollProgress * 1.2;
-    group.rotation.x += (targetRotationX - group.rotation.x) * 0.035;
-    group.rotation.y += (targetRotationY - group.rotation.y) * 0.035;
-    group.rotation.z = Math.sin(scrollProgress * Math.PI * 2.0) * 0.16;
-    group.position.x = Math.sin(scrollProgress * Math.PI * 1.8) * 0.7;
-    group.position.y = Math.sin(scrollProgress * Math.PI * 2.4) * 0.65;
+      desiredAvoidOffset.set(0, 0, 0);
+      if (isPointerActive) {
+        cube.getWorldPosition(projectedPosition);
+        projectedPosition.project(camera);
+        let deltaX = projectedPosition.x - pointer.x;
+        let deltaY = projectedPosition.y - pointer.y;
+        let distance = Math.hypot(deltaX, deltaY);
+        const avoidRadius = 0.22 + Math.min(data.scale, 1.9) * 0.11;
 
-    camera.position.x = Math.sin(scrollProgress * Math.PI * 1.5) * 0.4;
-    camera.position.y = Math.cos(scrollProgress * Math.PI * 1.25) * 0.22;
-    camera.position.z = 8.5 - scrollArc * 1.45;
-    camera.lookAt(0, 0, 0);
+        if (distance < avoidRadius) {
+          if (distance < 0.001) {
+            deltaX = Math.cos(data.phase);
+            deltaY = Math.sin(data.phase);
+            distance = 1;
+          }
+          const strength = (avoidRadius - distance) / avoidRadius;
+          desiredAvoidOffset.set(
+            (deltaX / distance) * strength * (1.15 + data.scale * 0.34),
+            (deltaY / distance) * strength * (0.9 + data.scale * 0.24),
+            strength * 0.18
+          );
+        }
+      }
 
-    blobs.forEach(function (blob, index) {
-      const direction = index === 0 ? 1 : -1;
-      const basePosition = blob.userData.basePosition;
-      const scalePulse = 1 + scrollArc * (index === 0 ? 0.24 : 0.18);
-
-      blob.rotation.x = elapsed * blob.userData.speed + blob.userData.offset + scrollProgress * direction * 2.4;
-      blob.rotation.y = elapsed * blob.userData.speed * 0.72 + index + scrollProgress * direction * 3.6;
-      blob.position.x = basePosition.x + scrollProgress * direction * 1.4;
-      blob.position.y = basePosition.y + Math.sin(elapsed * 0.45 + blob.userData.offset) * 0.08 - scrollProgress * direction * 1.8;
-      blob.position.z = basePosition.z + scrollArc * (index === 0 ? 1.1 : 0.75);
-      blob.scale.setScalar(blob.userData.baseScale * scalePulse);
+      data.avoidOffset.lerp(desiredAvoidOffset, isPointerActive ? 0.12 : 0.075);
+      cube.rotation.x = data.baseRotation.x + elapsed * data.speed + scroll.current * direction * 0.7;
+      cube.rotation.y = data.baseRotation.y + elapsed * data.speed * 1.25 + scroll.current * direction;
+      cube.rotation.z = data.baseRotation.z + elapsed * data.speed * 0.55;
+      cube.position.set(
+        data.basePosition.x + floatX + data.avoidOffset.x,
+        data.basePosition.y + floatY + data.avoidOffset.y,
+        data.basePosition.z + data.avoidOffset.z
+      );
+      data.innerCube.rotation.x = -elapsed * data.speed * 1.5 + data.phase;
+      data.innerCube.rotation.y = elapsed * data.speed * 1.8;
     });
 
-    particleShells.forEach(function (shell, index) {
-      const direction = index === 0 ? 1 : -1;
-      shell.rotation.y = elapsed * shell.userData.speed + scrollProgress * direction * 2.8;
-      shell.rotation.x = Math.sin(elapsed * 0.18 * PARTICLE_SPEED_MULTIPLIER + shell.userData.offset) * 0.24 + scrollProgress * 0.7;
-      const opacityPulse = 0.86 + Math.sin(elapsed * 0.7 * PARTICLE_SPEED_MULTIPLIER + shell.userData.offset) * 0.14;
-      shell.material.opacity = shell.userData.baseOpacity * opacityPulse;
-    });
-
-    orbitingLights.forEach(function (light) {
-      const data = light.userData;
-      const theta = data.theta + elapsed * data.speed + scrollProgress * 4.2;
-      const phi = data.phi + Math.sin(elapsed * 0.42 * PARTICLE_SPEED_MULTIPLIER + data.phase) * 0.28;
-      const radius = data.radius + Math.sin(elapsed * 0.85 * PARTICLE_SPEED_MULTIPLIER + data.phase) * 0.045;
-      const pulse = 1 + Math.sin(elapsed * 2.1 * PARTICLE_SPEED_MULTIPLIER + data.phase) * 0.32;
-
-      light.position.setFromSphericalCoords(radius, phi, theta);
-      light.scale.setScalar(data.baseSize * pulse);
-      light.material.opacity = 0.6 + pulse * 0.18;
-    });
-
-    particles.rotation.y = elapsed * 0.012 * PARTICLE_SPEED_MULTIPLIER + pointer.x * 0.025 + scrollProgress * 1.8;
-    particles.rotation.x = pointer.y * 0.015 + scrollProgress * 0.4;
-    particles.position.y = scrollProgress * 1.6;
-    particles.position.z = scrollArc * 1.4;
-
-    if (homeCard && !reduceMotion) {
-      const cardScale = 1 - scrollProgress * 0.12;
-      const cardOffset = scrollProgress * window.innerHeight * 0.52;
-      const cardRotation = Math.sin(scrollProgress * Math.PI * 1.5) * -1.8;
-      const cardOpacity = Math.max(0.2, 1 - scrollProgress * 1.08);
-
-      homeCard.style.transform = `translate3d(0, ${cardOffset}px, 0) scale(${cardScale}) rotate(${cardRotation}deg)`;
-      homeCard.style.opacity = String(cardOpacity);
-    }
-
+    particles.rotation.y = elapsed * 0.01 + pointer.x * 0.018;
+    particles.position.y = scroll.current * 0.5;
     renderer.render(scene, camera);
 
     if (!reduceMotion && isVisible) {
@@ -409,12 +354,10 @@ function initializeBackground(targetCanvas) {
 
   function handleVisibilityChange() {
     isVisible = !document.hidden;
-
     if (!isVisible) {
       window.cancelAnimationFrame(animationFrameId);
       return;
     }
-
     clock.getDelta();
     renderFrame();
   }
@@ -423,11 +366,10 @@ function initializeBackground(targetCanvas) {
   handleScroll();
   window.addEventListener("resize", handleResize, { passive: true });
   window.addEventListener("scroll", handleScroll, { passive: true });
-
   if (!reduceMotion) {
     window.addEventListener("pointermove", handlePointerMove, { passive: true });
+    document.documentElement.addEventListener("pointerleave", handlePointerLeave, { passive: true });
   }
-
   document.addEventListener("visibilitychange", handleVisibilityChange);
   renderFrame();
 }

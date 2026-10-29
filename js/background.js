@@ -225,7 +225,32 @@ function initializeBackground(targetCanvas) {
     }
   ];
 
-  const mobileCubes = desktopCubes.map(function (cube) {
+  const additionalDesktopCubes = desktopCubes.map(function (cube, index) {
+    const horizontalSpread = 0.72 + (index % 3) * 0.08;
+    const verticalOffset = ((index % 4) - 1.5) * 0.34;
+    const scaleRatio = 0.48 + (index % 4) * 0.08;
+
+    return {
+      ...cube,
+      position: new THREE.Vector3(
+        -cube.position.x * horizontalSpread,
+        -cube.position.y * 0.78 + verticalOffset,
+        cube.position.z - 0.8 - (index % 3) * 0.42
+      ),
+      scale: cube.scale * scaleRatio,
+      rotation: new THREE.Euler(
+        cube.rotation.x + 0.38,
+        cube.rotation.y - 0.46,
+        cube.rotation.z + 0.31
+      ),
+      speed: cube.speed * -1.12,
+      phase: cube.phase + 0.9 + index * 0.37
+    };
+  });
+
+  const allDesktopCubes = [...desktopCubes, ...additionalDesktopCubes];
+
+  const mobileCubes = allDesktopCubes.map(function (cube) {
     return {
       ...cube,
       position: new THREE.Vector3(cube.position.x * 0.34, cube.position.y * 0.96, cube.position.z - 0.15),
@@ -233,7 +258,7 @@ function initializeBackground(targetCanvas) {
     };
   });
 
-  const cubes = (isMobile ? mobileCubes : desktopCubes).map(createCube);
+  const cubes = (isMobile ? mobileCubes : allDesktopCubes).map(createCube);
   targetCanvas.dataset.cubeCount = String(cubes.length);
   targetCanvas.dataset.interactive = String(!reduceMotion);
 

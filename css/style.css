@@ -19,6 +19,27 @@
   --shadow: 0 8px 24px rgba(36, 52, 71, 0.07);
 }
 
+html[data-theme="dark"] {
+  --color-text: #e6edf2;
+  --color-background: #101a23;
+  --color-primary: #5e86a5;
+  --color-primary-dark: #4e7594;
+  --color-primary-soft: #1d3040;
+  --color-secondary: #a9bac7;
+  --color-secondary-soft: #20303c;
+  --color-accent: #58b9ad;
+  --color-accent-dark: #79d0c5;
+  --color-accent-soft: #183a38;
+  --color-muted: #91a2af;
+  --color-border: #344653;
+  --color-surface: #182631;
+  --color-success: #65c5b9;
+  --color-success-soft: #193c39;
+  --color-error: #e29ba3;
+  --color-error-soft: #3d282d;
+  --shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -34,6 +55,102 @@ body {
   font-family: Pretendard, "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   line-height: 1.65;
   word-break: keep-all;
+}
+
+.theme-toggle {
+  position: fixed;
+  z-index: 50;
+  top: 16px;
+  right: 16px;
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  box-shadow: var(--shadow);
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 800;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.theme-toggle:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent-dark);
+}
+
+.theme-toggle:focus-visible {
+  outline: 3px solid rgba(35, 127, 117, 0.28);
+  outline-offset: 3px;
+}
+
+.theme-toggle-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+html[data-theme="dark"] .card {
+  background: rgba(24, 38, 49, 0.92);
+}
+
+html[data-theme="dark"] .theme-toggle {
+  background: rgba(24, 38, 49, 0.9);
+}
+
+html[data-theme="dark"] .button-primary,
+html[data-theme="dark"] .option-label:has(input:checked) .option-number,
+html[data-theme="dark"] .calendar-day.is-learned {
+  background: #3f6f8d;
+  color: #ffffff;
+}
+
+html[data-theme="dark"] .button-primary:hover:not(:disabled) {
+  background: #345e79;
+}
+
+html[data-theme="dark"] .logout-button,
+html[data-theme="dark"] .selected-exam,
+html[data-theme="dark"] .form-field input,
+html[data-theme="dark"] .nickname-form input,
+html[data-theme="dark"] .profile-details > div,
+html[data-theme="dark"] .stat-card,
+html[data-theme="dark"] .record-item,
+html[data-theme="dark"] .wrong-item {
+  background: rgba(24, 38, 49, 0.82);
+}
+
+html[data-theme="dark"] .selection-panel {
+  border-color: rgba(117, 148, 169, 0.45);
+  background: #182631;
+}
+
+html[data-theme="dark"] .option-label:hover {
+  background: #1b2b36;
+}
+
+html[data-theme="dark"] .form-field input::placeholder,
+html[data-theme="dark"] .nickname-form input::placeholder {
+  color: #718594;
+}
+
+html[data-theme="dark"] .data-status {
+  border-color: var(--color-border);
+  background: rgba(29, 48, 64, 0.94);
+}
+
+html[data-theme="dark"] .stat-card-accent {
+  border-color: #39786f;
+  background: rgba(24, 58, 56, 0.94);
+}
+
+html[data-theme="dark"] .home-banner {
+  opacity: 0.88;
 }
 
 body[data-page="home"]::after {
@@ -1359,6 +1476,13 @@ h1 {
 
   .account-email {
     max-width: 130px;
+  }
+
+  .theme-toggle {
+    top: 10px;
+    right: 10px;
+    min-height: 36px;
+    padding: 6px 10px;
   }
 
   .account-bar .account-email {

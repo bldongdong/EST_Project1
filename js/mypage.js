@@ -143,7 +143,11 @@
 
     wrongAnswers.forEach(function ({ attempt, answer }) {
       const certificate = quizData[attempt.certificate_id];
-      const question = certificate?.questions?.[answer.question_index];
+      const question = answer.question_id
+        ? certificate?.questions?.find(function (item) {
+          return item.id === answer.question_id;
+        })
+        : certificate?.questions?.[answer.question_index];
       if (!question) return;
 
       const details = document.createElement("details");

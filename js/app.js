@@ -27,6 +27,19 @@
     return certificateId && quizData[certificateId] ? certificateId : null;
   }
 
+  async function loadSelectedCertificateFromDatabase() {
+    if (getSelectedCertificate()) return;
+
+    const currentUser = window.currentAuthSession?.user;
+    if (!currentUser || !window.learningRecords) return;
+
+    const result = await window.learningRecords.getProfile(currentUser.id);
+    const certificateId = result.profile?.selected_certificate_id;
+    if (certificateId && quizData[certificateId]) {
+      localStorage.setItem(CERTIFICATE_KEY, certificateId);
+    }
+  }
+
   function createRecordId() {
     if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
 
@@ -111,7 +124,7 @@
       changeButton.focus();
     }
 
-    optionContainer.addEventListener("click", function (event) {
+    optionContainer.addEventListener("click", async function (event) {
       const option = event.target.closest(".exam-option");
       if (!option) {
         return;
@@ -121,6 +134,17 @@
       localStorage.setItem(CERTIFICATE_KEY, selectedCertificateId);
       renderHome();
       closeSelection();
+
+      const currentUser = window.currentAuthSession?.user;
+      if (currentUser && window.learningRecords) {
+        const result = await window.learningRecords.updateSelectedCertificate(
+          currentUser.id,
+          selectedCertificateId
+        );
+        if (!result.synced) {
+          console.warn("선택한 자격증을 Supabase에 저장하지 못했습니다.", result.error);
+        }
+      }
     });
 
     changeButton.addEventListener("click", openSelection);
@@ -246,9 +270,9 @@
       if (currentUser && window.learningRecords) {
         const answerRecords = questions.map(function (question, questionIndex) {
           return {
+            question_id: question.id,
             question_index: questionIndex,
             selected_answer: answers[questionIndex],
-            correct_answer: question.answer,
             is_correct: answers[questionIndex] === question.answer
           };
         });
@@ -338,6 +362,9 @@
   async function initializePage() {
     quizData = await window.quizDataStore.load();
     const page = document.body.dataset.page;
+    if (page === "home" || page === "quiz") {
+      await loadSelectedCertificateFromDatabase();
+    }
     if (page === "home") initializeHome();
     else if (page === "quiz") initializeQuiz();
     else if (page === "result") initializeResult();

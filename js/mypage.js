@@ -196,8 +196,8 @@
 
     const [loadedQuizData, profileResult, attemptsResult] = await Promise.all([
       window.quizDataStore.load(),
-      recordsApi.getProfile(user.id),
-      recordsApi.getAttempts(user.id)
+      recordsApi.getProfile(),
+      recordsApi.getAttempts()
     ]);
 
     quizData = loadedQuizData;
@@ -235,7 +235,7 @@
 
       button.disabled = true;
       button.textContent = "저장 중...";
-      const result = await recordsApi.updateNickname(user.id, nextNickname);
+      const result = await recordsApi.updateNickname(nextNickname);
       document.querySelector("#profile-nickname").textContent = nextNickname;
       showProfileMessage(
         result.synced ? "닉네임을 저장했습니다." : "닉네임을 이 브라우저에 저장했습니다. DB 적용 후 자동 연동됩니다.",

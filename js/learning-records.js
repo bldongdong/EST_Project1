@@ -5,6 +5,15 @@
   const ATTEMPT_KEY_PREFIX = "dailyQuizUserAttempts:v1:";
   const PROFILE_KEY_PREFIX = "dailyQuizUserProfile:v1:";
 
+  function getAuthenticatedUser() {
+    const user = window.currentAuthSession?.user;
+    return user?.id ? user : null;
+  }
+
+  function createAuthRequiredError() {
+    return new Error("로그인이 필요한 사용자 데이터 요청입니다.");
+  }
+
   function readLocal(key, fallback) {
     try {
       return JSON.parse(localStorage.getItem(key)) ?? fallback;
@@ -67,10 +76,11 @@
     return sortAttempts(Array.from(attemptMap.values()));
   }
 
-  function getAttemptRow(attempt) {
+  function getAttemptRow(attempt, user) {
     return {
       id: attempt.id,
-      user_id: attempt.user_id,
+      user_id: user.id,
+      user_email: user.email || null,
       certificate_id: attempt.certificate_id,
       completed_on: attempt.completed_on,
       total: attempt.total,
@@ -80,32 +90,49 @@
     };
   }
 
-  function getAnswerRows(attempt) {
+  function getAnswerRows(attempt, user) {
     return (attempt.answers || []).filter(function (answer) {
       return Boolean(answer.question_id);
     }).map(function (answer) {
       return {
         attempt_id: attempt.id,
         question_id: answer.question_id,
+        user_id: user.id,
+        user_email: user.email || null,
         selected_option: answer.selected_answer,
         is_correct: answer.is_correct
       };
     });
   }
 
-  async function saveAttemptToDatabase(attempt) {
+  async function saveAttemptToDatabase(attempt, user) {
     const attemptResult = await databaseClient
       .from("quiz_attempts")
-      .upsert(getAttemptRow(attempt), { onConflict: "id" });
+      .upsert(getAttemptRow(attempt, user), {
+        onConflict: "id",
+        ignoreDuplicates: true
+      });
     if (attemptResult.error) return { synced: false, error: attemptResult.error };
 
-    const answerRows = getAnswerRows(attempt);
+    const ownershipResult = await databaseClient
+      .from("quiz_attempts")
+      .select("id")
+      .eq("id", attempt.id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (ownershipResult.error) return { synced: false, error: ownershipResult.error };
+    if (!ownershipResult.data) {
+      return { synced: false, error: new Error("현재 사용자의 학습 기록이 아닙니다.") };
+    }
+
+    const answerRows = getAnswerRows(attempt, user);
     if (answerRows.length === 0) return { synced: true };
 
     const existingResult = await databaseClient
       .from("quiz_attempt_answers")
       .select("question_id")
-      .eq("attempt_id", attempt.id);
+      .eq("attempt_id", attempt.id)
+      .eq("user_id", user.id);
     if (existingResult.error) return { synced: false, error: existingResult.error };
 
     const existingQuestionIds = new Set((existingResult.data || []).map(function (answer) {
@@ -124,12 +151,20 @@
   }
 
   async function saveAttempt(attempt) {
-    saveAttemptLocally(attempt);
+    const user = getAuthenticatedUser();
+    if (!user) return { synced: false, error: createAuthRequiredError() };
+
+    const ownedAttempt = {
+      ...attempt,
+      user_id: user.id,
+      user_email: user.email || null
+    };
+    saveAttemptLocally(ownedAttempt);
 
     if (!databaseClient) return { synced: false };
 
     try {
-      const result = await saveAttemptToDatabase(attempt);
+      const result = await saveAttemptToDatabase(ownedAttempt, user);
       if (result.synced) return result;
 
       console.warn("학습 기록은 이 브라우저에 저장되었습니다. Supabase 동기화는 DB 설정 후 활성화됩니다.");
@@ -139,21 +174,26 @@
     }
   }
 
-  async function getAttempts(userId) {
-    const localAttempts = getLocalAttempts(userId);
+  async function getAttempts() {
+    const user = getAuthenticatedUser();
+    if (!user) {
+      return { attempts: [], synced: false, error: createAuthRequiredError() };
+    }
+
+    const localAttempts = getLocalAttempts(user.id);
     if (!databaseClient) return { attempts: sortAttempts(localAttempts), synced: false };
 
     try {
       let syncError = null;
       for (const attempt of localAttempts) {
-        const syncResult = await saveAttemptToDatabase(attempt);
+        const syncResult = await saveAttemptToDatabase(attempt, user);
         if (!syncResult.synced && !syncError) syncError = syncResult.error;
       }
 
       const { data, error } = await databaseClient
         .from("quiz_attempts")
-        .select("id,user_id,certificate_id,completed_on,total,correct,rate,created_at")
-        .eq("user_id", userId)
+        .select("id,user_id,user_email,certificate_id,completed_on,total,correct,rate,created_at")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       if (error) return { attempts: sortAttempts(localAttempts), synced: false, error };
@@ -167,7 +207,8 @@
       if (attemptIds.length > 0) {
         const answerResult = await databaseClient
           .from("quiz_attempt_answers")
-          .select("attempt_id,question_id,selected_option,is_correct")
+          .select("attempt_id,question_id,user_id,user_email,selected_option,is_correct")
+          .eq("user_id", user.id)
           .in("attempt_id", attemptIds);
         if (answerResult.error) {
           return { attempts: sortAttempts(localAttempts), synced: false, error: answerResult.error };
@@ -190,15 +231,24 @@
         };
       });
       const attempts = mergeAttempts(attemptsWithAnswers, localAttempts);
-      writeLocal(getAttemptKey(userId), attempts);
+      writeLocal(getAttemptKey(user.id), attempts);
       return { attempts, synced: !syncError, error: syncError };
     } catch (error) {
       return { attempts: sortAttempts(localAttempts), synced: false, error };
     }
   }
 
-  async function getProfile(userId) {
-    const localProfile = readLocal(getProfileKey(userId), {
+  async function getProfile() {
+    const user = getAuthenticatedUser();
+    if (!user) {
+      return {
+        profile: { nickname: "", selected_certificate_id: null },
+        synced: false,
+        error: createAuthRequiredError()
+      };
+    }
+
+    const localProfile = readLocal(getProfileKey(user.id), {
       nickname: "",
       selected_certificate_id: null
     });
@@ -207,34 +257,40 @@
     try {
       const { data, error } = await databaseClient
         .from("profiles")
-        .select("nickname,selected_certificate_id")
-        .eq("user_id", userId)
+        .select("nickname,selected_certificate_id,user_email")
+        .eq("user_id", user.id)
         .maybeSingle();
 
       if (error) return { profile: localProfile, synced: false, error };
 
       const profile = data || localProfile;
-      writeLocal(getProfileKey(userId), profile);
+      writeLocal(getProfileKey(user.id), profile);
       return { profile, synced: true };
     } catch (error) {
       return { profile: localProfile, synced: false, error };
     }
   }
 
-  async function updateNickname(userId, nickname) {
-    const currentProfile = readLocal(getProfileKey(userId), {
+  async function updateNickname(nickname) {
+    const user = getAuthenticatedUser();
+    if (!user) {
+      return { profile: null, synced: false, error: createAuthRequiredError() };
+    }
+
+    const currentProfile = readLocal(getProfileKey(user.id), {
       nickname: "",
       selected_certificate_id: null
     });
     const profile = { ...currentProfile, nickname };
-    writeLocal(getProfileKey(userId), profile);
+    writeLocal(getProfileKey(user.id), profile);
 
     if (!databaseClient) return { profile, synced: false };
 
     try {
       const { error } = await databaseClient.from("profiles").upsert(
         {
-          user_id: userId,
+          user_id: user.id,
+          user_email: user.email || null,
           nickname,
           updated_at: new Date().toISOString()
         },
@@ -248,20 +304,26 @@
     }
   }
 
-  async function updateSelectedCertificate(userId, certificateId) {
-    const currentProfile = readLocal(getProfileKey(userId), {
+  async function updateSelectedCertificate(certificateId) {
+    const user = getAuthenticatedUser();
+    if (!user) {
+      return { profile: null, synced: false, error: createAuthRequiredError() };
+    }
+
+    const currentProfile = readLocal(getProfileKey(user.id), {
       nickname: "",
       selected_certificate_id: null
     });
     const profile = { ...currentProfile, selected_certificate_id: certificateId };
-    writeLocal(getProfileKey(userId), profile);
+    writeLocal(getProfileKey(user.id), profile);
 
     if (!databaseClient) return { profile, synced: false };
 
     try {
       const { error } = await databaseClient.from("profiles").upsert(
         {
-          user_id: userId,
+          user_id: user.id,
+          user_email: user.email || null,
           selected_certificate_id: certificateId,
           updated_at: new Date().toISOString()
         },

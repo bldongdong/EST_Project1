@@ -5,6 +5,7 @@
   const COMPLETION_KEY = "dailyQuizCompletions";
   const RESULT_KEY = "dailyQuizResult";
   let quizData = {};
+  let currentUserAttempts = [];
 
   function getLocalDateKey() {
     const today = new Date();
@@ -28,15 +29,15 @@
   }
 
   async function loadSelectedCertificateFromDatabase() {
-    if (getSelectedCertificate()) return;
-
     const currentUser = window.currentAuthSession?.user;
     if (!currentUser || !window.learningRecords) return;
 
-    const result = await window.learningRecords.getProfile(currentUser.id);
+    const result = await window.learningRecords.getProfile();
     const certificateId = result.profile?.selected_certificate_id;
     if (certificateId && quizData[certificateId]) {
       localStorage.setItem(CERTIFICATE_KEY, certificateId);
+    } else {
+      localStorage.removeItem(CERTIFICATE_KEY);
     }
   }
 
@@ -97,8 +98,10 @@
         return;
       }
 
-      const completions = readJson(localStorage, COMPLETION_KEY) || {};
-      const isComplete = completions[selectedCertificateId] === getLocalDateKey();
+      const isComplete = currentUserAttempts.some(function (attempt) {
+        return attempt.certificate_id === selectedCertificateId
+          && attempt.completed_on === getLocalDateKey();
+      });
 
       selectedExam.hidden = false;
       selectedExamName.textContent = certificate.name;
@@ -137,10 +140,7 @@
 
       const currentUser = window.currentAuthSession?.user;
       if (currentUser && window.learningRecords) {
-        const result = await window.learningRecords.updateSelectedCertificate(
-          currentUser.id,
-          selectedCertificateId
-        );
+        const result = await window.learningRecords.updateSelectedCertificate(selectedCertificateId);
         if (!result.synced) {
           console.warn("선택한 자격증을 Supabase에 저장하지 못했습니다.", result.error);
         }
@@ -279,7 +279,6 @@
 
         await window.learningRecords.saveAttempt({
           id: createRecordId(),
-          user_id: currentUser.id,
           certificate_id: certificateId,
           completed_on: result.date,
           total: result.total,
@@ -364,6 +363,10 @@
     const page = document.body.dataset.page;
     if (page === "home" || page === "quiz") {
       await loadSelectedCertificateFromDatabase();
+    }
+    if (page === "home" && window.currentAuthSession?.user && window.learningRecords) {
+      const attemptsResult = await window.learningRecords.getAttempts();
+      currentUserAttempts = attemptsResult.attempts || [];
     }
     if (page === "home") initializeHome();
     else if (page === "quiz") initializeQuiz();

@@ -17,11 +17,15 @@
 
   function addAdminMenu() {
     document.querySelectorAll(".account-bar").forEach(function (accountBar) {
-      if (accountBar.querySelector(".admin-menu-link")) return;
+      const existingLink = accountBar.querySelector(".admin-menu-link");
+      if (existingLink) {
+        existingLink.hidden = false;
+        return;
+      }
       const link = document.createElement("a");
       link.className = "mypage-link admin-menu-link";
       link.href = "admin.html";
-      link.textContent = "관리자 메뉴";
+      link.textContent = "관리자페이지";
       const email = accountBar.querySelector("[data-auth-email]");
       accountBar.insertBefore(link, email || null);
     });
@@ -31,7 +35,7 @@
       const link = document.createElement("a");
       link.className = "mypage-link admin-menu-link admin-menu-standalone";
       link.href = "admin.html";
-      link.textContent = "관리자 메뉴";
+      link.textContent = "관리자페이지";
       const homeLink = mypageHeader.querySelector(".home-link");
       homeLink?.insertAdjacentElement("afterend", link);
     }
@@ -58,8 +62,8 @@
 
       const { data: isAdmin, error: adminError } = await authClient.rpc("is_admin");
       if (adminError) {
-        console.error("관리자 권한을 확인하지 못했습니다.", adminError);
-        return "user";
+        console.warn("is_admin() 확인을 사용할 수 없어 profiles.role을 기준으로 판단합니다.", adminError);
+        return "admin";
       }
 
       return isAdmin === true ? "admin" : "user";

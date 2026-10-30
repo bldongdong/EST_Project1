@@ -2,7 +2,7 @@
   "use strict";
 
   const recordsApi = window.learningRecords;
-  const quizData = window.QUIZ_DATA || {};
+  let quizData = {};
   let attempts = [];
   let visibleMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
@@ -169,6 +169,11 @@
       container.appendChild(details);
     });
 
+    if (Object.keys(quizData).length === 0 && wrongAnswers.length > 0) {
+      emptyState.textContent = "문제 정보를 불러오지 못해 오답 내용을 표시할 수 없습니다.";
+    } else {
+      emptyState.textContent = "저장된 오답이 없습니다.";
+    }
     emptyState.hidden = container.childElementCount > 0;
   }
 
@@ -185,18 +190,27 @@
     document.querySelector("#profile-email").textContent = user.email || "-";
     document.querySelector("#profile-created-at").textContent = formatDate(user.created_at);
 
-    const [profileResult, attemptsResult] = await Promise.all([
+    const [loadedQuizData, profileResult, attemptsResult] = await Promise.all([
+      window.quizDataStore.load(),
       recordsApi.getProfile(user.id),
       recordsApi.getAttempts(user.id)
     ]);
 
+    quizData = loadedQuizData;
     const nickname = profileResult.profile?.nickname || "";
     document.querySelector("#profile-nickname").textContent = nickname || "설정 전";
     document.querySelector("#nickname-input").value = nickname;
     attempts = attemptsResult.attempts || [];
 
+    const statusMessages = [];
     if (!profileResult.synced || !attemptsResult.synced) {
-      status.textContent = "데이터베이스 적용 전에는 이 브라우저에 저장된 사용자별 학습 기록을 표시합니다.";
+      statusMessages.push("데이터베이스 적용 전에는 이 브라우저에 저장된 사용자별 학습 기록을 표시합니다.");
+    }
+    if (window.quizDataStore.getError()) {
+      statusMessages.push("자격증과 문제 정보를 불러오지 못해 일부 기록을 표시할 수 없습니다.");
+    }
+    if (statusMessages.length > 0) {
+      status.textContent = statusMessages.join(" ");
       status.hidden = false;
     }
 

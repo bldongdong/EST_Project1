@@ -4,7 +4,7 @@
   const CERTIFICATE_KEY = "dailyQuizCertificate";
   const COMPLETION_KEY = "dailyQuizCompletions";
   const RESULT_KEY = "dailyQuizResult";
-  const quizData = window.QUIZ_DATA || {};
+  let quizData = {};
 
   function getLocalDateKey() {
     const today = new Date();
@@ -48,7 +48,26 @@
     const homeDescription = document.querySelector("#home-description");
     const statusElement = document.querySelector("#today-status");
     const changeButton = document.querySelector("#change-exam");
+    const startLink = document.querySelector('a[href="quiz.html"]');
     let selectedCertificateId = getSelectedCertificate();
+
+    if (Object.keys(quizData).length === 0) {
+      const emptyState = document.createElement("p");
+      emptyState.className = "empty-state";
+      emptyState.textContent = window.quizDataStore?.getError()
+        ? "자격증 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."
+        : "현재 등록된 자격증이 없습니다.";
+      optionContainer.replaceChildren(emptyState);
+      selectedExam.hidden = true;
+      homeExamTitle.textContent = "자격증 퀴즈!";
+      homeDescription.textContent = "현재 이용할 수 있는 퀴즈가 없습니다.";
+      statusElement.textContent = "확인할 수 없음";
+      startLink?.removeAttribute("href");
+      startLink?.setAttribute("aria-disabled", "true");
+      overlay.hidden = false;
+      document.body.classList.add("selection-open");
+      return;
+    }
 
     Object.entries(quizData).forEach(function ([certificateId, certificate]) {
       const button = document.createElement("button");
@@ -117,14 +136,10 @@
     const certificateId = getSelectedCertificate();
     const certificate = certificateId && quizData[certificateId];
 
-    if (!certificate || !Array.isArray(certificate.questions)) {
+    if (!certificate) {
       window.location.replace("index.html");
       return;
     }
-
-    const questions = certificate.questions;
-    let currentIndex = 0;
-    const answers = [];
 
     const form = document.querySelector("#quiz-form");
     const fieldset = document.querySelector("#answer-fieldset");
@@ -134,11 +149,31 @@
     const progressText = document.querySelector("#progress-text");
     const progressTrack = document.querySelector(".progress-track");
     const progressBar = document.querySelector("#progress-bar");
+    const questions = Array.isArray(certificate.questions) ? certificate.questions : [];
+    let currentIndex = 0;
+    const answers = [];
 
     document.querySelector("#quiz-exam-name").textContent = `${certificate.name} · 오늘의 퀴즈`;
     document.title = `오늘의 퀴즈 | ${certificate.name}`;
-    progressTrack.setAttribute("aria-valuemax", String(questions.length));
     sessionStorage.removeItem(RESULT_KEY);
+
+    if (questions.length === 0) {
+      progressText.textContent = "0 / 0";
+      progressTrack.setAttribute("aria-valuemin", "0");
+      progressTrack.setAttribute("aria-valuemax", "0");
+      progressTrack.setAttribute("aria-valuenow", "0");
+      progressBar.style.width = "0%";
+      questionTitle.textContent = window.quizDataStore?.getError()
+        ? "문제를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."
+        : "현재 등록된 문제가 없습니다.";
+      optionList.innerHTML = "";
+      fieldset.disabled = true;
+      submitButton.disabled = true;
+      submitButton.textContent = "풀 수 있는 문제가 없습니다";
+      return;
+    }
+
+    progressTrack.setAttribute("aria-valuemax", String(questions.length));
 
     function renderQuestion() {
       const currentQuestion = questions[currentIndex];
@@ -300,7 +335,8 @@
     });
   }
 
-  function initializePage() {
+  async function initializePage() {
+    quizData = await window.quizDataStore.load();
     const page = document.body.dataset.page;
     if (page === "home") initializeHome();
     else if (page === "quiz") initializeQuiz();
